@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-# este seria la parte de customers-------------------------------------------------------------------
+
 class CustomerCreate(BaseModel):
     """
     Modelo para la creación de un cliente. 
@@ -21,7 +21,6 @@ class Customer(CustomerCreate):
 
 
  # 
-# aqui se acaba la parte de customers
-# --------------------------------------------------------------------------------------------------
+
 
 

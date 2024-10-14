@@ -3,7 +3,7 @@ from models import CustomerCreate, Customer
 from database import get_db_connection
 from typing import List
 import mysql.connector
-# esto es customers-----------------------------------------------------------------------------------
+
 router = APIRouter()
 
 @router.get("/customers/", response_model=List[Customer])
@@ -44,7 +44,7 @@ def create_customer(customer: CustomerCreate):
     finally:
         cursor.close()
         conn.close()
-# no entinedo e
+
 @router.post("/customers/{customer_id}/bulk/", response_model=List[Customer])
 def create_customers_bulk(customer_id: int, customers: List[CustomerCreate]):
     conn = get_db_connection()
@@ -75,6 +75,4 @@ def create_customers_bulk(customer_id: int, customers: List[CustomerCreate]):
     finally:
         cursor.close()
         conn.close()
-# aqui se acaba la parte de customers-------------------------------------------------------------------
 
-# esto es employees-----------------------------------------------------------------------------------
