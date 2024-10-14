@@ -1,0 +1,48 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+.env/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de distribución
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Archivos de pytest
+.pytest_cache/
+
+# Archivos de cobertura
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de registro
+*.log
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Otros archivos y carpetas que podrías querer ignorar
+*.bak
+*.tmp
+*.temp
