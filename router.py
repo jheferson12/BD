@@ -1,74 +1,72 @@
 from fastapi import APIRouter, HTTPException
-from models import CustomerCreate, Customer
+from models import MenuCreate, Menu
 from database import get_db_connection
 from typing import List
 import mysql.connector
 
 router = APIRouter()
 
-@router.get("/customers/", response_model=List[Customer])
-def list_customers():
+@router.post("/menus/bulk/", response_model=List[Menu])
+def create_menus_bulk(menus: List[MenuCreate]):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        query = "SELECT * FROM customers"
+        query = """
+        INSERT INTO menus (name, description, price)
+        VALUES (%s, %s, %s)
+        """
+        values = [(menu.name, menu.description, menu.price) for menu in menus]
+        
+        cursor.executemany(query, values)
+        new_menu_id_start = cursor.lastrowid
+        conn.commit()
+        
+        created_menus = []
+        for i, menu in enumerate(menus):
+            created_menus.append(Menu(menu_id=new_menu_id_start + i, **menu.dict()))
+        
+        return created_menus
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.get("/menus/", response_model=List[Menu])
+def list_menus():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        query = "SELECT * FROM menus"
         cursor.execute(query)
-        customers = cursor.fetchall()
-        return [Customer(**customer) for customer in customers]
+        menus = cursor.fetchall()
+        return [Menu(**menu) for menu in menus]
     except mysql.connector.Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     finally:
         cursor.close()
         conn.close()
 
-@router.post("/customers/bulk/", response_model=List[Customer])
-def create_customers_bulk(customers: List[CustomerCreate]):
+@router.delete("/menus/{menu_id}", response_model=dict)
+def delete_menu(menu_id: int):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        created_customers = []
-        for customer in customers:
-            query = """
-            INSERT INTO customers (name, email, phone)
-            VALUES (%s, %s, %s)
-            """
-            values = (customer.name, customer.email, customer.phone)
-            
-            cursor.execute(query, values)
-            new_customer_id = cursor.lastrowid
-            created_customers.append(Customer(customer_id=new_customer_id, **customer.dict()))
+        query = "DELETE FROM menus WHERE menu_id = %s"
+        cursor.execute(query, (menu_id,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Menú no encontrado")
         
         conn.commit()
-        return created_customers
+        return {"message": f"Menú con ID {menu_id} eliminado exitosamente"}
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     finally:
         cursor.close()
         conn.close()
-
-@router.delete("/customers/{customer_id}", response_model=dict)
-def delete_customer(customer_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    try:
-        cursor.execute("SELECT * FROM customers WHERE customer_id = %s", (customer_id,))
-        if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Cliente no encontrado")
-        
-        query = "DELETE FROM customers WHERE customer_id = %s"
-        cursor.execute(query, (customer_id,))
-        conn.commit()
-        
-        return {"message": f"Cliente con ID {customer_id} eliminado exitosamente"}
-    except mysql.connector.Error as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
-    finally:
-        cursor.close()
-        conn.close()
-
 
