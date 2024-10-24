@@ -1,14 +1,14 @@
 from pydantic import BaseModel
 from typing import Optional
-from decimal import Decimal
+from datetime import datetime
 
-class MenuCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    price: Decimal
+class OrderCreate(BaseModel):
+    customer_id: Optional[int] = None  
+    employee_id: Optional[int] = None  
+    order_date: datetime  
 
-class Menu(MenuCreate):
-    menu_id: int
+class Order(OrderCreate):
+    order_id: int  
 
 
 

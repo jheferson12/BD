@@ -1,57 +1,29 @@
 from fastapi import APIRouter, HTTPException
-from models import MenuCreate, Menu
+from models import OrderCreate, Order  
 from database import get_db_connection
 from typing import List
 import mysql.connector
 
 router = APIRouter()
 
-@router.post("/menus/bulk/", response_model=List[Menu])
-def create_menus_bulk(menus: List[MenuCreate]):
+@router.post("/orders/", response_model=Order)  
+def create_order(order: OrderCreate):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
         query = """
-        INSERT INTO menus (name, description, price)
+        INSERT INTO orders (customer_id, employee_id, order_date)
         VALUES (%s, %s, %s)
         """
-        values = [(menu.name, menu.description, menu.price) for menu in menus]
-
-        cursor.executemany(query, values)
-        new_menu_id_start = cursor.lastrowid
-        conn.commit()
-
-        created_menus = []
-        for i, menu in enumerate(menus):
-            created_menus.append(Menu(menu_id=new_menu_id_start + i, **menu.dict()))
-
-        return created_menus
-    except mysql.connector.Error as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    finally:
-        cursor.close()
-        conn.close()
-
-@router.post("/menus/", response_model=Menu)
-def create_menu(menu: MenuCreate):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    try:
-        query = """
-        INSERT INTO menus (name, description, price)
-        VALUES (%s, %s, %s)
-        """
-        values = (menu.name, menu.description, menu.price)
+        values = (order.customer_id, order.employee_id, order.order_date)
 
         cursor.execute(query, values)
         conn.commit()
 
-        new_menu_id = cursor.lastrowid
+        new_order_id = cursor.lastrowid
 
-        return Menu(menu_id=new_menu_id, **menu.dict())
+        return Order(order_id=new_order_id, **order.dict())
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -59,35 +31,63 @@ def create_menu(menu: MenuCreate):
         cursor.close()
         conn.close()
 
-@router.get("/menus/", response_model=List[Menu])
-def list_menus():
+@router.post("/orders/bulk/", response_model=List[Order])
+def create_orders_bulk(orders: List[OrderCreate]):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        query = "SELECT * FROM menus"
+        query = """
+        INSERT INTO orders (customer_id, employee_id, order_date)
+        VALUES (%s, %s, %s)
+        """
+        values = [(order.customer_id, order.employee_id, order.order_date) for order in orders]
+
+        cursor.executemany(query, values)
+        new_order_id_start = cursor.lastrowid
+        conn.commit()
+
+        created_orders = []
+        for i, order in enumerate(orders):
+            created_orders.append(Order(order_id=new_order_id_start + i, **order.dict()))
+
+        return created_orders
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.get("/orders/", response_model=List[Order]) 
+def list_orders():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "SELECT * FROM orders"
         cursor.execute(query)
-        menus = cursor.fetchall()
-        return [Menu(**menu) for menu in menus]
+        orders = cursor.fetchall()
+        return [Order(**order) for order in orders]
     except mysql.connector.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
 
-@router.delete("/menus/{menu_id}", response_model=dict)
-def delete_menu(menu_id: int):
+@router.delete("/orders/{order_id}", response_model=dict)  
+def delete_order(order_id: int):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        query = "DELETE FROM menus WHERE menu_id = %s"
-        cursor.execute(query, (menu_id,))
+        query = "DELETE FROM orders WHERE order_id = %s"
+        cursor.execute(query, (order_id,))
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Menu not found")
+            raise HTTPException(status_code=404, detail="Order not found")
 
         conn.commit()
-        return {"message": f"Menu with ID {menu_id} successfully deleted"}
+        return {"message": f"Order with ID {order_id} successfully deleted"}
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
