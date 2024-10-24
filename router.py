@@ -17,7 +17,7 @@ def list_customers():
         customers = cursor.fetchall()
         return [Customer(**customer) for customer in customers]
     except mysql.connector.Error as e:
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -44,7 +44,7 @@ def create_customers_bulk(customers: List[CustomerCreate]):
         return created_customers
     except mysql.connector.Error as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -57,18 +57,44 @@ def delete_customer(customer_id: int):
     try:
         cursor.execute("SELECT * FROM customers WHERE customer_id = %s", (customer_id,))
         if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+            raise HTTPException(status_code=404, detail="Customer not found")
         
         query = "DELETE FROM customers WHERE customer_id = %s"
         cursor.execute(query, (customer_id,))
         conn.commit()
         
-        return {"message": f"Cliente con ID {customer_id} eliminado exitosamente"}
+        return {"message": f"Customer with ID {customer_id} successfully deleted"}
     except mysql.connector.Error as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
 
+@router.post("/customers/", response_model=Customer)
+def create_customer(customer: CustomerCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        
+        query = """
+        INSERT INTO customers (name, email, phone)
+        VALUES (%s, %s, %s)
+        """
+        values = (customer.name, customer.email, customer.phone)
+        
+        cursor.execute(query, values)
+        conn.commit()
+        
+        new_customer_id = cursor.lastrowid
+        
+        return Customer(customer_id=new_customer_id, **customer.dict())
 
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    finally:
+        cursor.close()
+        conn.close()

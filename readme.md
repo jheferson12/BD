@@ -1,40 +1,31 @@
-# Sistema de Gestión para un Restaurante
+Restaurant Management System
+Description
+This project is a restaurant management system developed in Python. It includes the creation of a relational database, an API to interact with the database, and source code management using Git and GitHub.
 
-## Descripción
+Requirements
+Python
+MySQL
+FastAPI or Flask
+Git
+Installation
+Clone the repository:
 
-Este proyecto es un sistema de gestión para un restaurante, desarrollado en Python. Incluye la creación de una base de datos relacional, una API para interactuar con la base de datos y la gestión del código fuente utilizando Git y GitHub.
+bash
+git clone https://github.com/jheferson12/sistema-gestion-restaurante.git  
+cd sistema-gestion-restaurante  
+Create and activate a virtual environment:
 
-## Requisitos
+bash
+python -m venv venv  
+venv\scripts\activate  
+Install the dependencies:
 
-- Python 
-- MySQL 
-- FastAPI o Flask
-- Git
+bash
+pip install -r requirements.txt  
+Configure the environment variables:
+Create a .env file in the project root with the following content:
 
-## Instalación
-
-1. Clona el repositorio:
-    ```bash
-    git clone https://github.com/jheferson12/sistema-gestion-restaurante.git
-    cd sistema-gestion-restaurante
-    ```
-
-2. Crea y activa un entorno virtual:
-    ```bash
-    python -m venv venv
-    venv\scripts\activate 
-    ```
-
-3. Instala las dependencias:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4. Configura las variables de entorno:
-    Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
-    ```env
-    DATABASE:bases_datos
-    ```
-
+env
+DATABASE=bases_datos  
 
 
