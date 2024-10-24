@@ -17,7 +17,7 @@ def list_employees():
         employees = cursor.fetchall()
         return [Employee(**employee) for employee in employees]
     except mysql.connector.Error as e:
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -44,39 +44,33 @@ def create_employees_bulk(employees: List[EmployeeCreate]):
         return created_employees
     except mysql.connector.Error as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
 
-@router.post("/employees/{employee_id}/bulk/", response_model=List[Employee])
-def create_employees_bulk(employee_id: int, employees: List[EmployeeCreate]):
+@router.post("/employees", response_model=Employee)
+def create_employee(employee: EmployeeCreate):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
-        # Verificar si el cliente principal existe
-        cursor.execute("SELECT * FROM employees WHERE employee_id = %s", (employee_id,))
-        if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Empleado principal no encontrado")
+        query = """
+        INSERT INTO employees (name, position, email, phone)
+        VALUES (%s, %s, %s, %s)
+        """
+        values = (employee.name, employee.position, employee.email, employee.phone)
         
-        created_employees = []
-        for employee in employees:
-            query = """
-            INSERT INTO employees (name, position, email, phone)
-            VALUES (%s, %s, %s, %s)
-            """
-            values = (employee.name, employee.position, employee.email, employee.phone)
-            
-            cursor.execute(query, values)
-            new_employee_id = cursor.lastrowid
-            created_employees.append(Employee(employee_id=new_employee_id, **employee.dict()))
-        
+        cursor.execute(query, values)
         conn.commit()
-        return created_employees
+
+        new_employee_id = cursor.lastrowid
+
+        return Employee(employee_id=new_employee_id, **employee.dict())
+
     except mysql.connector.Error as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -87,20 +81,18 @@ def delete_employee(employee_id: int):
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Verificar si el empleado existe
         cursor.execute("SELECT * FROM employees WHERE employee_id = %s", (employee_id,))
         if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Empleado no encontrado")
+            raise HTTPException(status_code=404, detail="Employee not found")
         
-        # Eliminar el empleado
         query = "DELETE FROM employees WHERE employee_id = %s"
         cursor.execute(query, (employee_id,))
         conn.commit()
         
-        return {"mensaje": f"Empleado con ID {employee_id} eliminado exitosamente"}
+        return {"message": f"Employee with ID {employee_id} successfully deleted"}
     except mysql.connector.Error as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
