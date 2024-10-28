@@ -61,7 +61,7 @@ def create_uploads_bulk(uploads: List[UploadCreate]):
 
         for upload in uploads:
             values = (upload.menu_id, upload.upload_date)
-            cursor.execute(query, values)
+            cursor.executemany(query, values)
 
             new_upload_id = cursor.lastrowid
             created_uploads.append(
