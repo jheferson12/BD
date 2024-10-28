@@ -34,7 +34,7 @@ def create_upload(upload: UploadCreate):
         """
         values = (upload.menu_id, upload.upload_date)
 
-        cursor.execute(query, values)
+        cursor.executemany(query, values)
         conn.commit()
 
         new_upload_id = cursor.lastrowid
@@ -100,3 +100,73 @@ def delete_upload(upload_id: int):
         cursor.close()
         conn.close()
 
+
+@router.get("/products/total_sales", response_model=List[dict])
+def get_product_sales():
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    
+    query = """
+    SELECT p.product_id, p.name AS product_name, 
+           SUM(od.quantity * od.price) AS total_sales
+    FROM order_details od
+    JOIN products p ON od.product_id = p.product_id
+    GROUP BY p.product_id;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    
+    
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/menu/average_price", response_model=List[dict])
+def get_average_price_per_category():
+   
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    
+    query = """
+    SELECT mc.category_name, AVG(um.price) AS average_price
+    FROM uploadmenu um
+    JOIN menu_categories mc ON um.category_id = mc.category_id
+    GROUP BY mc.category_name;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    
+    
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/uploadmenu/unordered", response_model=List[dict])
+def get_unordered_menus():
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    
+    query = """
+    SELECT um.uploadmenu_id, um.name
+    FROM uploadmenu um
+    LEFT JOIN order_items oi ON um.uploadmenu_id = oi.menu_id
+    WHERE oi.menu_id IS NULL;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    
+   
+    cursor.close()
+    conn.close()
+    
+    return result
