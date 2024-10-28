@@ -36,7 +36,7 @@ def create_employees_bulk(employees: List[EmployeeCreate]):
             """
             values = (employee.name, employee.position, employee.email, employee.phone)
             
-            cursor.execute(query, values)
+            cursor.executemany(query, values)
             new_employee_id = cursor.lastrowid
             created_employees.append(Employee(employee_id=new_employee_id, **employee.dict()))
         
@@ -96,3 +96,64 @@ def delete_employee(employee_id: int):
     finally:
         cursor.close()
         conn.close()
+
+
+@router.get("/employees/", response_model=List[Employee])
+def get_employees():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT e.employee_id, e.name, d.department_name
+            FROM employees e
+            LEFT JOIN departments d ON e.department_id = d.department_id
+            ORDER BY e.employee_id;
+        """)
+        result = cursor.fetchall()
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+@router.get("/employees/stats/", response_model=Employee)
+def get_employee_stats():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT 
+                MAX(employee_id) AS max_employee_id,
+                MIN(employee_id) AS min_employee_id,
+                AVG(employee_id) AS average_employee_id
+            FROM employees;
+        """)
+        result = cursor.fetchone()
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+@router.get("/employees/", response_model=List[Employee])
+def get_all_employees():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT employee_id, name, position, email, phone
+            FROM employees
+            ORDER BY name;
+        """)
+        result = cursor.fetchall()
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
