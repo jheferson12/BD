@@ -96,3 +96,91 @@ def delete_order(order_id: int):
         conn.close()
 
 
+@router.get("/orders/customers")
+def get_orders_with_customers():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    
+    query = """
+    SELECT o.order_id, o.order_date, c.customer_id, c.name AS customer_name
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/customers/total-sales")
+def get_customers_total_sales():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    
+    query = """
+    SELECT c.customer_id, c.name AS customer_name, SUM(oi.quantity * oi.price) AS total_sales
+    FROM orders o
+    JOIN order_items oi ON o.order_id = oi.order_id
+    JOIN customers c ON o.customer_id = c.customer_id
+    GROUP BY c.customer_id
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/products/total-quantity")
+def get_products_total_quantity():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+   
+    query = """
+    SELECT p.product_id, p.name AS product_name, SUM(oi.quantity) AS total_quantity
+    FROM orders o
+    JOIN order_items oi ON o.order_id = oi.order_id
+    JOIN products p ON oi.product_id = p.product_id
+    WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
+    GROUP BY p.product_id
+    ORDER BY total_quantity DESC
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/customers/stats")
+def get_customer_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+   
+    query = """
+    SELECT 
+        MAX(customer_id) AS max_id,
+        MIN(customer_id) AS min_id,
+        AVG(customer_id) AS avg_id
+    FROM 
+        customers;
+    """
+    
+    cursor.execute(query)
+    stats = cursor.fetchone()  
+    cursor.close()
+    conn.close()
+    
+    return {
+        "max_id": stats['max_id'],
+        "min_id": stats['min_id'],
+        "avg_id": stats['avg_id']
+    }
