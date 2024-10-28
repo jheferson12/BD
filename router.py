@@ -96,3 +96,62 @@ def delete_menu(menu_id: int):
         conn.close()
 
 
+@router.get("/menus/not_ordered")
+def get_menus_not_ordered():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    query = """
+    SELECT m.menu_id, m.name
+    FROM menus m
+    LEFT JOIN order_items oi ON m.menu_id = oi.menu_id
+    WHERE oi.menu_id IS NULL;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/menus/min_max_price")
+def get_min_max_price():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    query = """
+    SELECT 
+        MIN(price) AS min_price, 
+        MAX(price) AS max_price 
+    FROM menus;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchone()  
+    cursor.close()
+    conn.close()
+    
+    return {
+        "min_price": result["min_price"] if result else None,
+        "max_price": result["max_price"] if result else None
+    }
+
+@router.get("/menus/average_price")
+def get_average_price_per_category():
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    query = """
+    SELECT category, AVG(price) AS average_price
+    FROM menus
+    GROUP BY category;
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
