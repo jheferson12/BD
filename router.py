@@ -137,21 +137,30 @@ def get_min_max_price():
         "max_price": result["max_price"] if result else None
     }
 
-@router.get("/menus/average_price")
-def get_average_price_per_category():
-    
+@router.get("/menus/average_price", response_model=List[float])
+def get_average_price():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    query = """
-    SELECT category, AVG(price) AS average_price
-    FROM menus
-    GROUP BY category;
-    """
+    try:
+        # Consulta para calcular el precio promedio de todos los menús
+        query = """
+        SELECT AVG(price) AS average_price
+        FROM menus;
+        """
+        
+        cursor.execute(query)
+        result = cursor.fetchone()  # Obtener solo una fila con el promedio
+        
+        # Devuelve el promedio como una lista
+        return [result[0]] if result[0] is not None else [0.0]
     
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+    
+    finally:
+        cursor.close()
+        conn.close()
