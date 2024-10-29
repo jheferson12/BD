@@ -13,23 +13,31 @@ def create_customers_bulk(customers: List[CustomerCreate]):
     cursor = conn.cursor(dictionary=True)
     
     try:
+        query = """
+        INSERT INTO customers (name, email, phone)
+        VALUES (%s, %s, %s)
+        """ 
+       
+        values = [(customer.name, customer.email, customer.phone) for customer in customers]        
+        
+        cursor.executemany(query, values)      
+        
         created_customers = []
-        for customer in customers:
-            query = """
-            INSERT INTO customers (name, email, phone)
-            VALUES (%s, %s, %s)
-            """
-            values = (customer.name, customer.email, customer.phone)
-            
-            cursor.executemany(query, values)
-            new_customer_id = cursor.lastrowid
-            created_customers.append(Customer(customer_id=new_customer_id, **customer.dict()))
+        for i in range(cursor.rowcount):
+            new_customer_id = cursor.lastrowid - cursor.rowcount + 1 + i
+            created_customers.append(Customer(customer_id=new_customer_id, **customers[i].dict()))
         
         conn.commit()
         return created_customers
+    
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+    
     finally:
         cursor.close()
         conn.close()
@@ -107,18 +115,11 @@ def get_customers():
     
     cursor.execute("SELECT * FROM customers")
     customers = cursor.fetchall()
-
     cursor.close()
-    conn.close()
-
-    
-    max_customer = max(customers, key=lambda x: x['customer_id']) if customers else None
-
-    
+    conn.close()    
+    max_customer = max(customers, key=lambda x: x['customer_id']) if customers else None    
     if max_customer:
-        customers.remove(max_customer)
-
-   
+        customers.remove(max_customer)   
     if max_customer:
         max_customer_message = f"You're the best customer, {max_customer['name']}!"
     else:
