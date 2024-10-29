@@ -52,28 +52,31 @@ def create_order_details_bulk(order_details: List[OrderDetailCreate]):
     cursor = conn.cursor(dictionary=True)
 
     try:
-        created_order_details = []
-
         query = """
         INSERT INTO order_details (order_id, menu_id, quantity)
         VALUES (%s, %s, %s)
         """
         
-        for detail in order_details:
-            values = (detail.order_id, detail.menu_id, detail.quantity)
-            cursor.executemany(query, values)
-
-            new_order_detail_id = cursor.lastrowid
-            created_order_details.append(
-                OrderDetail(order_detail_id=new_order_detail_id, **detail.dict())
-            )
-
+        values = [(detail.order_id, detail.menu_id, detail.quantity) for detail in order_details]
+        cursor.executemany(query, values)
         conn.commit()
+
+        new_order_detail_ids = cursor.lastrowid - len(order_details) + 1
+        created_order_details = [
+            OrderDetail(order_detail_id=new_order_detail_ids + i, **detail.dict())
+            for i, detail in enumerate(order_details)
+        ]
+
         return created_order_details
 
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+    
     finally:
         cursor.close()
         conn.close()
@@ -169,3 +172,4 @@ def get_product_quantity_last_month():
     conn.close()
 
     return result
+    
