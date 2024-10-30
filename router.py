@@ -6,6 +6,119 @@ import mysql.connector
 
 router = APIRouter()
 
+@router.post("/employees", response_model=Employee)
+def create_employee(employee: EmployeeCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = """
+        INSERT INTO employees (name, position, email, phone)
+        VALUES (%s, %s, %s, %s)
+        """
+        values = (employee.name, employee.position, employee.email, employee.phone)
+        
+        cursor.execute(query, values)
+        conn.commit()
+
+        new_employee_id = cursor.lastrowid
+
+        return Employee(employee_id=new_employee_id, **employee.dict())
+
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/customers/", response_model=Customer)
+def create_customer(customer: CustomerCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        
+        query = """
+        INSERT INTO customers (name, email, phone)
+        VALUES (%s, %s, %s)
+        """
+        values = (customer.name, customer.email, customer.phone)
+        
+        cursor.execute(query, values)
+        conn.commit()
+        
+        new_customer_id = cursor.lastrowid
+        
+        return Customer(customer_id=new_customer_id, **customer.dict())
+
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/customers/bulk/", response_model=List[Customer])
+def create_customers_bulk(customers: List[CustomerCreate]):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        INSERT INTO customers (name, email, phone)
+        VALUES (%s, %s, %s)
+        """
+        
+        values = [(customer.name, customer.email, customer.phone) for customer in customers]
+        
+        cursor.executemany(query, values)
+        conn.commit()
+
+        created_customers = [
+            Customer(customer_id=cursor.lastrowid + i, **customer.dict())
+            for i, customer in enumerate(customers)
+        ]
+        
+        return created_customers
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/employees/bulk/", response_model=List[Employee])
+def create_employees_bulk(employees: List[EmployeeCreate]):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+       
+        query = """
+        INSERT INTO employees (name, position, email, phone)
+        VALUES (%s, %s, %s, %s)
+        """        
+        values = [
+            (employee.name, employee.position, employee.email, employee.phone)
+            for employee in employees
+        ]        
+        cursor.executemany(query, values)        
+        conn.commit()
+        created_employees = [
+            Employee(employee_id=cursor.lastrowid + i, **employee.dict())
+            for i, employee in enumerate(employees)
+        ]
+        return created_employees
+
+    except MySQLError as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @router.get("/customers/", response_model=List[Customer])
 def list_customers():
     conn = get_db_connection()
@@ -22,54 +135,38 @@ def list_customers():
         cursor.close()
         conn.close()
 
-@router.post("/employees", response_model=Employee)
-def create_employee(employee: EmployeeCreate):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    try:
-        
-        query = """
-        INSERT INTO customers (customer_id, name, email, phone)
-        VALUES (%s, %s, %s, %s)
-        """
-        values = (customer.customer_id, customer.name, customer.email, customer.phone)
-        
-        cursor.execute(query, values)
-        conn.commit()
-        
-        return Customer(**customer.dict())
-    except mysql.connector.Error as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
-    finally:
-        cursor.close()
-        conn.close()
-
-@router.post("/customers/{customer_id}/bulk/", response_model=List[Customer])
-def create_customers_bulk(customer_id: int, customers: List[CustomerCreate]):
+@router.get("/employees/", response_model=List[Employee])
+def list_employees():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Verificar si el cliente principal existe
-        cursor.execute("SELECT * FROM customers WHERE customer_id = %s", (customer_id,))
+        query = "SELECT * FROM employees"
+        cursor.execute(query)
+        employees = cursor.fetchall()
+        return [Employee(**employee) for employee in employees]
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.delete("/employees/{employee_id}", response_model=dict)
+def delete_employee(employee_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT * FROM employees WHERE employee_id = %s", (employee_id,))
         if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Cliente principal no encontrado")
+            raise HTTPException(status_code=404, detail="Employee not found")
         
-        created_customers = []
-        for customer in customers:
-            query = """
-            INSERT INTO customers (customer_id, name, email, phone)
-            VALUES (%s, %s, %s, %s)
-            """
-            values = (customer.customer_id, customer.name, customer.email, customer.phone)
-            
-            cursor.execute(query, values)
-            created_customers.append(Customer(**customer.dict()))
-        
+        query = "DELETE FROM employees WHERE employee_id = %s"
+        cursor.execute(query, (employee_id,))
         conn.commit()
-        return created_customers
+        
+        return {"message": f"Employee with ID {employee_id} successfully deleted"}
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -77,88 +174,28 @@ def create_customers_bulk(customer_id: int, customers: List[CustomerCreate]):
         cursor.close()
         conn.close()
 
-@router.get("/customers")
-def get_customers():
+@router.delete("/customers/{customer_id}", response_model=dict)
+def delete_customer(customer_id: int):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
-    cursor.execute("SELECT * FROM customers")
-    customers = cursor.fetchall()
-    cursor.close()
-    conn.close()    
-    max_customer = max(customers, key=lambda x: x['customer_id']) if customers else None    
-    if max_customer:
-        customers.remove(max_customer)   
-    if max_customer:
-        max_customer_message = f"You're the best customer, {max_customer['name']}!"
-    else:
-        max_customer_message = "No customers available."
-
-    return {
-        "customers": customers,
-        "max_customer_message": max_customer_message,
-        "max_customer": max_customer
-    }
-
-@router.get("/customers/stats")
-def get_customers_stats():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-   
-    query = """
-    SELECT 
-        MAX(customer_id) AS max_id,
-        MIN(customer_id) AS min_id,
-        AVG(customer_id) AS avg_id
-    FROM customers
-    """
-    
-    cursor.execute(query)
-    stats = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    return {
-        "max_id": stats["max_id"],
-        "min_id": stats["min_id"],
-        "avg_id": stats["avg_id"],
-    }
-
-@router.get("/customers/{customer_id}")
-def get_customer_by_id(customer_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    query = "SELECT * FROM customers WHERE customer_id = %s"
-    cursor.execute(query, (customer_id,))
-    customer = cursor.fetchone()
-    cursor.close()
-    conn.close()  
-    
-    return customer
-
-@router.get("/recent-orders/customers")
-def get_recent_orders_customers():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
     try:
-        query = """
-        SELECT c.customer_id, c.name 
-        FROM customers c
-        JOIN orders o ON c.customer_id = o.customer_id
-        WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
-        """
-        cursor.execute(query)
-        result = cursor.fetchall()
-        if not result:
-            return {"message": "No recent orders found."}
-        return result
-    except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+        cursor.execute("SELECT * FROM customers WHERE customer_id = %s", (customer_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        query = "DELETE FROM customers WHERE customer_id = %s"
+        cursor.execute(query, (customer_id,))
+        conn.commit()
+        
+        return {"message": f"Customer with ID {customer_id} successfully deleted"}
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
+
 
 @router.get("/employees/stats/")
 def get_employee_stats():
@@ -244,3 +281,87 @@ def get_employees_with_orders():
     finally:
         cursor.close()
         connection.close()
+
+@router.get("/customers")
+def get_customers():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    cursor.execute("SELECT * FROM customers")
+    customers = cursor.fetchall()
+    cursor.close()
+    conn.close()    
+    max_customer = max(customers, key=lambda x: x['customer_id']) if customers else None    
+    if max_customer:
+        customers.remove(max_customer)   
+    if max_customer:
+        max_customer_message = f"You're the best customer, {max_customer['name']}!"
+    else:
+        max_customer_message = "No customers available."
+
+    return {
+        "customers": customers,
+        "max_customer_message": max_customer_message,
+        "max_customer": max_customer
+    }
+
+@router.get("/customers/stats")
+def get_customers_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+   
+    query = """
+    SELECT 
+        MAX(customer_id) AS max_id,
+        MIN(customer_id) AS min_id,
+        AVG(customer_id) AS avg_id
+    FROM customers
+    """
+    
+    cursor.execute(query)
+    stats = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    return {
+        "max_id": stats["max_id"],
+        "min_id": stats["min_id"],
+        "avg_id": stats["avg_id"],
+    }
+
+@router.get("/customers/{customer_id}")
+def get_customer_by_id(customer_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    query = "SELECT * FROM customers WHERE customer_id = %s"
+    cursor.execute(query, (customer_id,))
+    customer = cursor.fetchone()
+    cursor.close()
+    conn.close()  
+    
+    return customer
+
+@router.get("/recent-orders/customers")
+def get_recent_orders_customers():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        SELECT c.customer_id, c.name 
+        FROM customers c
+        JOIN orders o ON c.customer_id = o.customer_id
+        WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            return {"message": "No recent orders found."}
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
+

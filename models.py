@@ -1,26 +1,27 @@
 from pydantic import BaseModel, Field
-
+from typing import Optional
 
 class CustomerCreate(BaseModel):
-    """
-    Modelo para la creación de un cliente. 
-    Define los campos requeridos al crear un cliente en la base de datos.
-    """
-    customer_id: int = Field(..., description="ID del cliente", example=1)
-    name: str = Field(..., description="Nombre del cliente", example="John Doe")
-    email: str = Field(..., description="Correo del cliente", example="johndoe@example.com")
-    phone: str = Field(..., description="Teléfono del cliente", example="+1234567890")
+       
+    name: str = Field(..., description="Nombre del cliente")
+    email: str = Field(..., description="Correo del cliente")
+    phone: str = Field(..., description="Teléfono del cliente")
 
 class Customer(CustomerCreate):
-    """
-    Modelo que extiende CustomerCreate y representa un cliente ya creado.
-    Incluye los mismos campos, pero puede usarse para respuestas de la API.
-    """
-    customer_id: int = Field(..., description="ID del cliente", example=1)
+   
+    customer_id: int = Field(..., description="ID del cliente") 
 
 
+class EmployeeCreate(BaseModel):
+    name: str = Field(..., description="Employee's name")
+    position: str = Field(..., description="Employee's position")
+    email: str = Field(..., description="Employee's email")
+    phone: str = Field(..., description="Employee's phone")
 
- # 
+class Employee(EmployeeCreate):
+    employee_id: Optional[int] = Field(None, description="Employee ID")
 
+    class Config:
+        from_attributes = True
 
 
