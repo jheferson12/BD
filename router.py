@@ -93,73 +93,74 @@ def delete_upload(upload_id: int):
         cursor.close()
         conn.close()
 
-
-@router.get("/products/total_sales", response_model=List[dict])
-def get_product_sales():
-    
+@router.get("/menus/not_ordered", response_model=List[dict])
+def get_menus_not_ordered():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    
-    query = """
-    SELECT p.product_id, p.name AS product_name, 
-           SUM(od.quantity * od.price) AS total_sales
-    FROM order_details od
-    JOIN products p ON od.product_id = p.product_id
-    GROUP BY p.product_id;
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    
-    
-    cursor.close()
-    conn.close()
-    
-    return result
-
-@router.get("/menu/average_price", response_model=List[dict])
-def get_average_price_per_category():
-   
+    try:
+        query = """
+        SELECT m.menu_id, m.name
+        FROM menus m
+        WHERE m.menu_id NOT IN (
+            SELECT menu_id
+            FROM order_details
+        );
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="No menus found")
+        
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
+@router.get("/menu/upload_count", response_model=List[dict])
+def get_upload_count_per_menu():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    
-    query = """
-    SELECT mc.category_name, AVG(um.price) AS average_price
-    FROM uploadmenu um
-    JOIN menu_categories mc ON um.category_id = mc.category_id
-    GROUP BY mc.category_name;
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    
-    
-    cursor.close()
-    conn.close()
-    
-    return result
+    try:
+        query = """
+        SELECT menu_id, COUNT(*) AS upload_count
+        FROM uploadmenu
+        GROUP BY menu_id;
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="No data found")
+
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
 
 @router.get("/uploadmenu/unordered", response_model=List[dict])
 def get_unordered_menus():
-    
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    
-    query = """
-    SELECT um.uploadmenu_id, um.name
-    FROM uploadmenu um
-    LEFT JOIN order_items oi ON um.uploadmenu_id = oi.menu_id
-    WHERE oi.menu_id IS NULL;
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    
-   
-    cursor.close()
-    conn.close()
-    
-    return result
+    try:
+        query = """
+        SELECT um.upload_id, um.menu_id
+        FROM uploadmenu um
+        LEFT JOIN order_details od ON um.menu_id = od.menu_id
+        WHERE od.menu_id IS NULL;
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="No unordered menus found")
+
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
