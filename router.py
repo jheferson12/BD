@@ -115,49 +115,52 @@ def get_orders_with_customers():
     
     return result
 
-@router.get("/customers/total-sales")
+@router.get("/customers/total-sales", response_model=List[dict])
 def get_customers_total_sales():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        SELECT c.customer_id, c.name AS customer_name, SUM(od.quantity) AS total_sales
+        FROM orders o
+        JOIN order_details od ON o.order_id = od.order_id
+        JOIN customers c ON o.customer_id = c.customer_id
+        GROUP BY c.customer_id
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            raise HTTPException(status_code=404, detail="No data found")
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
 
-    
-    query = """
-    SELECT c.customer_id, c.name AS customer_name, SUM(oi.quantity * oi.price) AS total_sales
-    FROM orders o
-    JOIN order_items oi ON o.order_id = oi.order_id
-    JOIN customers c ON o.customer_id = c.customer_id
-    GROUP BY c.customer_id
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
-    return result
-
-@router.get("/products/total-quantity")
+@router.get("/products/total-quantity", response_model=List[dict])
 def get_products_total_quantity():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-   
-    query = """
-    SELECT p.product_id, p.name AS product_name, SUM(oi.quantity) AS total_quantity
-    FROM orders o
-    JOIN order_items oi ON o.order_id = oi.order_id
-    JOIN products p ON oi.product_id = p.product_id
-    WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
-    GROUP BY p.product_id
-    ORDER BY total_quantity DESC
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
-    return result
+    try:
+        query = """
+        SELECT od.menu_id, SUM(od.quantity) AS total_quantity
+        FROM order_details od
+        JOIN orders o ON od.order_id = o.order_id
+        WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
+        GROUP BY od.menu_id
+        ORDER BY total_quantity DESC
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            raise HTTPException(status_code=404, detail="No data found")
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
 
 @router.get("/customers/stats")
 def get_customer_stats():
