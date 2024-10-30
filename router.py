@@ -34,7 +34,7 @@ def create_upload(upload: UploadCreate):
         """
         values = (upload.menu_id, upload.upload_date)
 
-        cursor.executemany(query, values)
+        cursor.execute(query, values)
         conn.commit()
 
         new_upload_id = cursor.lastrowid
@@ -50,27 +50,20 @@ def create_upload(upload: UploadCreate):
 def create_uploads_bulk(uploads: List[UploadCreate]):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
     try:
-        created_uploads = []
+        query = """INSERT INTO uploadmenu (menu_id, upload_date) VALUES (%s, %s)"""
+        values = [(upload.menu_id, upload.upload_date) for upload in uploads]
+        
+        cursor.executemany(query, values)
+        first_upload_id = cursor.lastrowid
 
-        query = """
-        INSERT INTO uploadmenu (menu_id, upload_date)
-        VALUES (%s, %s)
-        """
-
-        for upload in uploads:
-            values = (upload.menu_id, upload.upload_date)
-            cursor.executemany(query, values)
-
-            new_upload_id = cursor.lastrowid
-            created_uploads.append(
-                Upload(upload_id=new_upload_id, **upload.dict())
-            )
+        created_uploads = [
+            Upload(upload_id=first_upload_id + i, **upload.dict())
+            for i, upload in enumerate(uploads)
+        ]
 
         conn.commit()
         return created_uploads
-
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
