@@ -109,23 +109,18 @@ def delete_order_detail(order_detail_id: int):
 def get_order_details():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
     query = """
-    SELECT od.order_detail_id, o.order_id, p.product_id, p.name AS product_name, od.quantity, od.price
+    SELECT od.order_detail_id, o.order_id, od.menu_id, od.quantity
     FROM order_details od
     JOIN orders o ON od.order_id = o.order_id
-    JOIN products p ON od.product_id = p.product_id;
     """
-
     cursor.execute(query)
     result = cursor.fetchall()
     cursor.close()
     conn.close()
-
     return result
 
 @router.get("/order_details/min_max")
-
 def get_min_max_order_details():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -140,7 +135,7 @@ def get_min_max_order_details():
     """
 
     cursor.execute(query)
-    result = cursor.fetchone()  # Usar fetchone ya que solo hay un registro
+    result = cursor.fetchone()  
     cursor.close()
     conn.close()
 
@@ -151,25 +146,21 @@ def get_min_max_order_details():
         "max_quantity": result['max_quantity'],
     }
 
-@router.get("/products/quantity_last_month")
-def get_product_quantity_last_month():
+@router.get("/orders/quantity_last_month")
+def get_order_quantity_last_month():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
     query = """
-    SELECT p.product_id, p.name AS product_name, SUM(od.quantity) AS total_quantity
+    SELECT od.order_detail_id, o.order_id, SUM(od.quantity) AS total_quantity
     FROM order_details od
     JOIN orders o ON od.order_id = o.order_id
-    JOIN products p ON od.product_id = p.product_id
     WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
-    GROUP BY p.product_id
+    GROUP BY o.order_id
     ORDER BY total_quantity DESC;
     """
-
     cursor.execute(query)
     result = cursor.fetchall()
     cursor.close()
     conn.close()
-
     return result
     
