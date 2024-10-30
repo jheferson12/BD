@@ -169,26 +169,24 @@ def get_customer_by_id(customer_id: int):
     
     return customer
 
-@router.get("/customers/orders")
-def get_customers_with_orders():
+@router.get("/recent-orders/customers")
+def get_recent_orders_customers():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-   
-    query = """
-    SELECT c.customer_id, c.name, SUM(od.quantity) AS total_items_ordered 
-    FROM customers c 
-    JOIN orders o ON c.customer_id = o.customer_id 
-    JOIN order_details od ON o.order_id = od.order_id 
-    GROUP BY c.customer_id 
-    ORDER BY total_items_ordered DESC 
-    LIMIT 1;
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchone()  
-    cursor.close()
-    conn.close()
-    
-    return result if result else {"message": "No orders found."}  
-
+    try:
+        query = """
+        SELECT c.customer_id, c.name 
+        FROM customers c
+        JOIN orders o ON c.customer_id = o.customer_id
+        WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            return {"message": "No recent orders found."}
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
