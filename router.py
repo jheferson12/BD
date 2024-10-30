@@ -161,31 +161,27 @@ def count_chefs():
         cursor.close()
         connection.close()
 
-@router.get("/employees/orders", response_model=List[Employee])
+@router.get("/employees/orders", response_model=List[EmployeeCreate])
 def get_employees_with_orders():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-
     try:
         query = """
-            SELECT 
-                e.employee_id, e.name AS employee_name, e.position, 
-                o.order_id, o.order_date, o.total_amount
-            FROM employees e
-            JOIN orders o ON e.employee_id = o.employee_id;
+        SELECT 
+            e.employee_id, e.name, e.position, e.email, e.phone,
+            o.order_id, o.order_date
+        FROM employees e
+        JOIN orders o ON e.employee_id = o.employee_id
         """
         cursor.execute(query)
         result = cursor.fetchall()
-
         
         if not result:
             raise HTTPException(status_code=404, detail="No orders found for employees")
-
+        
         return result
     except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=str(err))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
     finally:
         cursor.close()
         connection.close()
