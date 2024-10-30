@@ -100,20 +100,25 @@ def delete_menu(menu_id: int):
 def get_menus_not_ordered():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    query = """
-    SELECT m.menu_id, m.name
-    FROM menus m
-    LEFT JOIN order_items oi ON m.menu_id = oi.menu_id
-    WHERE oi.menu_id IS NULL;
-    """
-    
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
-    return result
+    try:
+        query = """
+        SELECT m.menu_id, m.name
+        FROM menus m
+        LEFT JOIN order_details od ON m.menu_id = od.menu_id
+        WHERE od.menu_id IS NULL;
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="No menus found")
+        
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
 
 @router.get("/menus/min_max_price")
 def get_min_max_price():
