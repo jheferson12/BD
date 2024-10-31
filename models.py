@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
+from decimal import Decimal
 
 class CustomerCreate(BaseModel):
        
@@ -26,7 +27,6 @@ class Employee(EmployeeCreate):
         from_attributes = True
 
 
-
 class OrderCreate(BaseModel):
     customer_id: Optional[int] = None  
     employee_id: Optional[int] = None  
@@ -41,3 +41,12 @@ class OrderCreate(BaseModel):
 
 class Order(OrderCreate):
     order_id: int 
+
+
+class MenuCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: Decimal
+
+class Menu(MenuCreate):
+    menu_id: int
