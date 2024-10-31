@@ -6,25 +6,39 @@ import mysql.connector
 
 router = APIRouter()
 
-@router.post("/employees", response_model=Employee)
-def create_employee(employee: EmployeeCreate):
+@router.get("/order_details/", response_model=List[OrderDetail])
+def list_order_details():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "SELECT * FROM order_details"
+        cursor.execute(query)
+        order_details = cursor.fetchall()
+        return [OrderDetail(**detail) for detail in order_details]
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/order_details/", response_model=OrderDetail)
+def create_order_detail(order_detail: OrderDetailCreate):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
         query = """
-        INSERT INTO employees (name, position, email, phone)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO order_details (order_id, menu_id, quantity)
+        VALUES (%s, %s, %s)
         """
-        values = (employee.name, employee.position, employee.email, employee.phone)
-        
+        values = (order_detail.order_id, order_detail.menu_id, order_detail.quantity)
+
         cursor.execute(query, values)
         conn.commit()
 
-        new_employee_id = cursor.lastrowid
-
-        return Employee(employee_id=new_employee_id, **employee.dict())
-
+        new_order_detail_id = cursor.lastrowid
+        return OrderDetail(order_detail_id=new_order_detail_id, **order_detail.dict())
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -32,30 +46,37 @@ def create_employee(employee: EmployeeCreate):
         cursor.close()
         conn.close()
 
-@router.post("/customers/", response_model=Customer)
-def create_customer(customer: CustomerCreate):
+@router.post("/order_details/bulk/", response_model=List[OrderDetail])
+def create_order_details_bulk(order_details: List[OrderDetailCreate]):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
-        
         query = """
-        INSERT INTO customers (name, email, phone)
+        INSERT INTO order_details (order_id, menu_id, quantity)
         VALUES (%s, %s, %s)
         """
-        values = (customer.name, customer.email, customer.phone)
         
-        cursor.execute(query, values)
+        values = [(detail.order_id, detail.menu_id, detail.quantity) for detail in order_details]
+        cursor.executemany(query, values)
         conn.commit()
-        
-        new_customer_id = cursor.lastrowid
-        
-        return Customer(customer_id=new_customer_id, **customer.dict())
+
+        new_order_detail_ids = cursor.lastrowid - len(order_details) + 1
+        created_order_details = [
+            OrderDetail(order_detail_id=new_order_detail_ids + i, **detail.dict())
+            for i, detail in enumerate(order_details)
+        ]
+
+        return created_order_details
 
     except mysql.connector.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
+    
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+    
     finally:
         cursor.close()
         conn.close()
