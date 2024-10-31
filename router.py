@@ -148,16 +148,16 @@ def get_average_price():
     cursor = conn.cursor()
     
     try:
-        # Consulta para calcular el precio promedio de todos los menús
+        
         query = """
         SELECT AVG(price) AS average_price
         FROM menus;
         """
         
         cursor.execute(query)
-        result = cursor.fetchone()  # Obtener solo una fila con el promedio
+        result = cursor.fetchone()  
         
-        # Devuelve el promedio como una lista
+        
         return [result[0]] if result[0] is not None else [0.0]
     
     except mysql.connector.Error as e:
