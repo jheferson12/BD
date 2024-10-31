@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
-#customers
+
 class CustomerCreate(BaseModel):
     name: str = Field(..., description="Customer's name")
     email: str = Field(..., description="Customer's email")
@@ -14,7 +14,7 @@ class Customer(CustomerCreate):
     
     class Config:
         from_attributes = True
-#employees
+
 class EmployeeCreate(BaseModel):
     name: str = Field(..., description="Employee's name")
     position: str = Field(..., description="Employee's position")
@@ -27,7 +27,7 @@ class Employee(EmployeeCreate):
     class Config:
         from_attributes = True
 
-#orders
+
 class OrderCreate(BaseModel):
     customer_id: Optional[int] = None  
     employee_id: Optional[int] = None  
@@ -36,7 +36,7 @@ class OrderCreate(BaseModel):
 class Order(OrderCreate):
     order_id: int  
 
-#menus
+
 class MenuCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -45,7 +45,7 @@ class MenuCreate(BaseModel):
 class Menu(MenuCreate):
     menu_id: int
 
-#order_details
+
 class OrderDetailCreate(BaseModel):
     order_id: int = Field(..., description="Associated order ID")
     menu_id: int = Field(..., description="Menu item ID")
@@ -57,7 +57,7 @@ class OrderDetail(OrderDetailCreate):
     class Config:
         from_attributes = True
 
-#uploadmenu
+
 class UploadCreate(BaseModel):
     menu_id: int = Field(None, description="ID of the menu item (optional)")
     upload_date: datetime = Field(..., description="Date and time of the upload")
