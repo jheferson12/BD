@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models import EmployeeCreate, Employee,Customer,CustomerCreate
+from models import EmployeeCreate, Employee,Customer,CustomerCreate,OrderCreate,Order
 from database import get_db_connection
 from typing import List
 import mysql.connector
@@ -56,6 +56,31 @@ def create_customer(customer: CustomerCreate):
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/orders/", response_model=Order)  
+def create_order(order: OrderCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = """
+        INSERT INTO orders (customer_id, employee_id, order_date)
+        VALUES (%s, %s, %s)
+        """
+        values = (order.customer_id, order.employee_id, order.order_date)
+
+        cursor.execute(query, values)
+        conn.commit()
+
+        new_order_id = cursor.lastrowid
+
+        return Order(order_id=new_order_id, **order.dict())
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -118,19 +143,72 @@ def create_employees_bulk(employees: List[EmployeeCreate]):
         cursor.close()
         conn.close()
 
+@router.post("/orders/bulk/", response_model=List[Order])
+def create_orders_bulk(orders: List[OrderCreate]):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = """
+        INSERT INTO orders (customer_id, employee_id, order_date)
+        VALUES (%s, %s, %s)
+        """
+        values = [(order.customer_id, order.employee_id, order.order_date) for order in orders]
+
+        cursor.executemany(query, values)
+        new_order_id_start = cursor.lastrowid
+        conn.commit()
+
+        created_orders = []
+        for i, order in enumerate(orders):
+            created_orders.append(Order(order_id=new_order_id_start + i, **order.dict()))
+
+        return created_orders
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
 
 @router.get("/customers/", response_model=List[Customer])
 def list_customers():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
-        query = "SELECT * FROM customers"
-        cursor.execute(query)
-        customers = cursor.fetchall()
-        return [Customer(**customer) for customer in customers]
+        query = """
+        INSERT INTO orders (customer_id, employee_id, order_date)
+        VALUES (%s, %s, %s)
+        """
+        values = (Order.customer_id, Order.employee_id, Order.order_date)
+
+        cursor.execute(query, values)
+        conn.commit()
+
+        new_order_id = cursor.lastrowid
+
+        return Order(order_id=new_order_id, **Order.dict())
     except mysql.connector.Error as e:
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.get("/orders/", response_model=List[Order]) 
+def list_orders():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "SELECT * FROM orders"
+        cursor.execute(query)
+        orders = cursor.fetchall()
+        return [Order(**order) for order in orders]
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -139,7 +217,7 @@ def list_customers():
 def list_employees():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         query = "SELECT * FROM employees"
         cursor.execute(query)
@@ -196,6 +274,92 @@ def delete_customer(customer_id: int):
         cursor.close()
         conn.close()
 
+@router.delete("/orders/{order_id}", response_model=dict)  
+def delete_order(order_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "DELETE FROM orders WHERE order_id = %s"
+        cursor.execute(query, (order_id,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        conn.commit()
+        return {"message": f"Order with ID {order_id} successfully deleted"}
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.get("/orders/customers")
+def get_orders_with_customers():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    
+    query = """
+    SELECT o.order_id, o.order_date, c.customer_id, c.name AS customer_name
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+    """
+    
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    return result
+
+@router.get("/customers/total-sales", response_model=List[dict])
+def get_customers_total_sales():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        SELECT c.customer_id, c.name AS customer_name, SUM(od.quantity) AS total_sales
+        FROM orders o
+        JOIN order_details od ON o.order_id = od.order_id
+        JOIN customers c ON o.customer_id = c.customer_id
+        GROUP BY c.customer_id
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            raise HTTPException(status_code=404, detail="No data found")
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.get("/products/total-quantity", response_model=List[dict])
+def get_products_total_quantity():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        SELECT od.menu_id, SUM(od.quantity) AS total_quantity
+        FROM order_details od
+        JOIN orders o ON od.order_id = o.order_id
+        WHERE o.order_date >= CURDATE() - INTERVAL 1 MONTH
+        GROUP BY od.menu_id
+        ORDER BY total_quantity DESC
+        """
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if not result:
+            raise HTTPException(status_code=404, detail="No data found")
+        return result
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        conn.close()
 
 @router.get("/employees/stats/")
 def get_employee_stats():

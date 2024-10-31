@@ -28,4 +28,6 @@ Create a .env file in the project root with the following content:
 env
 DATABASE=bases_datos  
 
+DATABASE=bases_datos
+
 
